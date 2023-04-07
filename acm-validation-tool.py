@@ -5,11 +5,10 @@ import boto3, fire
 import csv
 
 class Main:
-    '''
-        ACMの検証保留中のレコードの一括出力/登録ツール
+    '''ACMの検証保留中のレコードの一括出力/登録ツール
 
         SubCommand:
-            export: 標準出力にcsv形式でレコードを
+            export: 標準出力にcsv形式でレコードを出力する
             regist: 指定したcsvファイルからRoute53にレコードを登録
         
         Examples:
@@ -17,8 +16,8 @@ class Main:
             python3 acm-validation-tool.py regist export.csv
         
         Args:
-            profile (str): 実行に利用するプロファイル名
-            region (str): 実行対象のリージョン名
+            profile (str): 実行時に利用するAWSプロファイル
+            region (str): 実行先リージョン
             dry (bool): Trueの場合、確認メッセージの出力後の登録処理を行いません
     '''
     #TODO: 初期化処理がi/oセットになってるので分離したい
@@ -42,8 +41,6 @@ class Main:
             
             Examples:
                 python3 acm-validation-tool.py regist export.csv
-
-
         '''
         with open(file, "r") as f:
             for record in csv.DictReader(f):
@@ -112,7 +109,7 @@ class Main:
         return result
     
     def _get_longest_match_zone_id(self, domain: str)-> dict:
-        """
+        '''
             受け取ったドメインと最長で一致するドメインとそのホストゾーンIDを返却する
             複数同名のZoneが取得された場合は取得順となるゾーン情報を返却します
             Return Example:
@@ -120,7 +117,7 @@ class Main:
                     'Id': 'XXXXXXXX'
                     'Name': 'example.com',
                 }
-        """
+        '''
         #同一名のZoneが複数存在する可能性あるので配列で受け入れて加工して最後にdictにする
         result = []
         splited_domain = domain.split(".")
@@ -158,11 +155,11 @@ class Main:
         '''
             recordをzoneに登録する
         '''
-        confirm_text="Regist confirm: '{}' to {} [Y/n]".format(zone['Name'], zone)
+        confirm_text="Regist confirm: '{}' to {}]".format(record['Name'], zone)
         if self._dry:
-            print(confirm_text)
+            print(confirm_text + " Skkiped.")
         else:
-            confirm = input(confirm_text)
+            confirm = input(confirm_text + "[Y/n]")
             if 'Y' == confirm.upper():
                 self._route53.change_resource_record_sets(
                     HostedZoneId=zone['Id'],
