@@ -6,11 +6,26 @@ import csv
 
 class Main:
     #TODO: 初期化処理がi/oセットになってるので分離したい
-    def __init__(self, profile: str="default"):
+    def __init__(self, profile: str="default", region: str="",dry: bool=False):
         session = boto3.Session(profile_name=profile)
         self._acm = session.client("acm")
+        self._route53 = session.client("route53")
         self._csv_header = ["Domain", "Name", "Type", "Value"]
-
+        self._dry = dry
+    
+    ##NOTE: Import/Exportにしたかったが予約語の関係で一旦i/oで作成
+    def i(self, file: str):
+        '''
+            fileからCSVのレコードを読み込み
+        '''
+        with open(file, "r") as f:
+            for record in csv.DictReader(f):
+                print("[Start] Domain: {}".format(record["Domain"]))
+                zone = self._get_longest_match_zone_id(record["Domain"])
+                if zone == dict():
+                    print("Not fond hosted zone.")
+                    continue
+                self._regist_to_zone(record, zone) 
     def o(self):
         '''
             保留中のACMの認証レコードを出力する
@@ -65,6 +80,80 @@ class Main:
                 }
                 result.append(res)
         return result
+    
+    def _get_longest_match_zone_id(self, domain: str)-> dict:
+        """
+            受け取ったドメインと最長で一致するドメインとそのホストゾーンIDを返却する
+            複数同名のZoneが取得された場合は取得順となるゾーン情報を返却します
+            Return Example:
+                {
+                    'Id': 'XXXXXXXX'
+                    'Name': 'example.com',
+                }
+        """
+        #同一名のZoneが複数存在する可能性あるので配列で受け入れて加工して最後にdictにする
+        result = []
+        splited_domain = domain.split(".")
+        #.区切られてないドメインは不正なドメインと判定する
+        if 2 > len(splited_domain):
+            print("Invalid Domain {}".fomart(domain), file=sys.stderr)
+            return dict()
+        
+        #HACK: 全権取得するのでコストが高いlist_hosted_zones_by_name()の挙動はよくわからなかった
+        #      2000件以上は対応していないです。
+        zone_list = self._route53.list_hosted_zones()
+        if 0 == len(zone_list['HostedZones']):
+            return dict()
+        
+        # 取得元のホストを元から徐々に先頭を減らしていき一致するまで検索をかける
+        # ただし最短は2要素まで
+        # a.b.c.com -> b.c.com -> c.com
+        # HACK: 全取得結果全てに対して毎回filterをかけるのでコストが高い
+        #         =>　逆に要素を増やして徐々に絞り込む方がコストは低そう
+        for i in range(0, len(splited_domain) - 1):
+            target_host = ".".join(splited_domain[i:]) + "."
+            target_zones = [ zone for zone in zone_list['HostedZones'] if zone['Name'] == target_host]
+            if len(target_zones) > 0:
+                if len(target_zones) > 1:
+                    print("WARNING: There are some hosted zone for '{}': {}".format(domain, target_zones))
+                result = target_zones
+                break
+
+        return {
+            'Id': result[0]['Id'],
+            'Name': result[0]['Name']
+        } if result != [] else dict()
+    
+    def _regist_to_zone(self, record: dict, zone: dict):
+        '''
+            recordをzoneに登録する
+        '''
+        confirm_text="Regist confirm: '{}' to {} [Y/n]".format(zone['Name'], zone)
+        if self._dry:
+            print(confirm_text)
+        else:
+            confirm = input(confirm_text)
+            if 'Y' == confirm.upper():
+                self._route53.change_resource_record_sets(
+                    HostedZoneId=zone['Id'],
+                    ChangeBatch={
+                        'Comment': 'Updated by acm-validation-tool',
+                        'Changes': [{
+                            'Action': 'UPSERT',
+                            'ResourceRecordSet': {
+                                'Name': record['Name'],
+                                'Type': record['Type'],
+                                'TTL': 600,
+                                'ResourceRecords': [
+                                    { 'Value': record['Value']}
+                                ]
+                            }
+                        }]
+                    }
+                )       
+            else:
+                print("Skipped: '{}'".format(record['Name']))
+        print("[End] Domain: {}".format(record["Domain"]))
 
 if '__main__' == __name__:
     fire.Fire(Main)
