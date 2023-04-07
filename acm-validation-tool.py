@@ -5,18 +5,45 @@ import boto3, fire
 import csv
 
 class Main:
+    '''
+        ACMの検証保留中のレコードの一括出力/登録ツール
+
+        SubCommand:
+            export: 標準出力にcsv形式でレコードを
+            regist: 指定したcsvファイルからRoute53にレコードを登録
+        
+        Examples:
+            python3 acm-validation-tool.py export
+            python3 acm-validation-tool.py regist export.csv
+        
+        Args:
+            profile (str): 実行に利用するプロファイル名
+            region (str): 実行対象のリージョン名
+            dry (bool): Trueの場合、確認メッセージの出力後の登録処理を行いません
+    '''
     #TODO: 初期化処理がi/oセットになってるので分離したい
-    def __init__(self, profile: str="default", region: str="",dry: bool=False):
+    def __init__(self, profile: str="default", region: str="", dry: bool=False):
         session = boto3.Session(profile_name=profile)
         self._acm = session.client("acm")
         self._route53 = session.client("route53")
         self._csv_header = ["Domain", "Name", "Type", "Value"]
         self._dry = dry
     
-    ##NOTE: Import/Exportにしたかったが予約語の関係で一旦i/oで作成
-    def i(self, file: str):
+    def regist(self, file: str):
         '''
-            fileからCSVのレコードを読み込み
+            FILEをCSVとして読み込みRoute 53にレコードを登録します。
+
+            CSVに記載されたレコードはRoute53のゾーンの内ゾーン名が最長で一致するゾーンに登録を行います。
+            該当ゾーンに同名レコードが登録されている場合は上書きします。
+
+            ** WARNING **
+                検証が十分に行われていないため状態により想定しないゾーンにレコードが登録される可能性があります。
+                事前に--dryオプションを利用して登録レコードと登録先Zoneを確認してください。
+            
+            Examples:
+                python3 acm-validation-tool.py regist export.csv
+
+
         '''
         with open(file, "r") as f:
             for record in csv.DictReader(f):
@@ -26,9 +53,12 @@ class Main:
                     print("Not fond hosted zone.")
                     continue
                 self._regist_to_zone(record, zone) 
-    def o(self):
+    def export(self):
         '''
             保留中のACMの認証レコードを出力する
+
+            Examples:
+                python3 acm-validation-tool.py export
         '''
         result = []
         cert_list = self._acm.list_certificates()
@@ -59,12 +89,12 @@ class Main:
         '''
             引数に指定した証明書のARNからその中の保留中のレコードの一覧を返却する
             Return example:
-            [{
-                'Domain': 'example.com',
-                'Name': '_hogehoge.example.com',
-                'Type': 'CNAME',
-                'Value': '_foo.bar.acm-validations.aws.'
-            }]
+                [{
+                    'Domain': 'example.com',
+                    'Name': '_hogehoge.example.com',
+                    'Type': 'CNAME',
+                    'Value': '_foo.bar.acm-validations.aws.'
+                }]
 
         '''
         result = []
