@@ -34,6 +34,9 @@ class Main:
         else:
             session_args["profile_name"] = profile
 
+        if "" != region:
+            session_args["region_name"] = region
+        print(session_args)
         session = boto3.Session(**session_args)
         
         self._acm = session.client("acm")
