@@ -21,19 +21,22 @@ class Main:
             dry (bool): Trueの場合、確認メッセージの出力後の登録処理を行いません
     '''
     #TODO: 初期化処理がi/oセットになってるので分離したい
-    def __init__(self, profile: str="default", region: str="", dry: bool=False):
+    #FIXME: --yes-allで受け入れ可能だがhelp上でyes_allではなくyes-all表記にする方法が不明
+    def __init__(self, profile: str="default", region: str="", dry: bool=False, yes_all: bool=False):
         session = boto3.Session(profile_name=profile)
         self._acm = session.client("acm")
         self._route53 = session.client("route53")
         self._csv_header = ["Domain", "Name", "Type", "Value"]
         self._dry = dry
-    
+        self._yes_all= yes_all
+
     def regist(self, file: str):
         '''
             FILEをCSVとして読み込みRoute 53にレコードを登録します。
 
             CSVに記載されたレコードはRoute53のゾーンの内ゾーン名が最長で一致するゾーンに登録を行います。
-            該当ゾーンに同名レコードが登録されている場合は上書きします。
+            該当ゾーンに同名レコードが登録されている場合は上書きをします。
+            （ただしチェックを行っていないためレコードパターンにより上書きできずエラーとなる可能性有）
 
             ** WARNING **
                 検証が十分に行われていないため状態により想定しないゾーンにレコードが登録される可能性があります。
@@ -155,12 +158,15 @@ class Main:
         '''
             recordをzoneに登録する
         '''
-        confirm_text="Regist confirm: '{}' to {}]".format(record['Name'], zone)
+        print("Regist confirm: '{}' to {}]".format(record['Name'], zone),end='')
         if self._dry:
-            print(confirm_text + " Skkiped.")
+            print(" Skkiped.")
         else:
-            confirm = input(confirm_text + "[Y/n]")
-            if 'Y' == confirm.upper():
+            if not self._yes_all:
+                confirm = input("[Y/n]")
+            else:
+                print("")
+            if self._yes_all or 'Y' == confirm.upper():
                 self._route53.change_resource_record_sets(
                     HostedZoneId=zone['Id'],
                     ChangeBatch={
