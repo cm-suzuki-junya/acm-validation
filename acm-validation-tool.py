@@ -36,7 +36,7 @@ class Main:
 
         if "" != region:
             session_args["region_name"] = region
-        print(session_args)
+
         session = boto3.Session(**session_args)
         
         self._acm = session.client("acm")
@@ -76,13 +76,15 @@ class Main:
                 python3 acm-validation-tool.py export
         '''
         result = []
-        cert_list = self._acm.list_certificates()
-
+        list_cert_result = self._acm.list_certificates()
+        cert_list = list_cert_result['CertificateSummaryList']
+        
+        print(cert_list)
         if 0 == len(cert_list):
             print("no certificate")
             return
         
-        for cert in cert_list['CertificateSummaryList']:
+        for cert in cert_list:
             try:
                 record = self._list_pending_validation_record(cert['CertificateArn'])
                 if 0 != len(record):
