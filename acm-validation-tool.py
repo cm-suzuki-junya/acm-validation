@@ -23,7 +23,19 @@ class Main:
     #TODO: 初期化処理がi/oセットになってるので分離したい
     #FIXME: --yes-allで受け入れ可能だがhelp上でyes_allではなくyes-all表記にする方法が不明
     def __init__(self, profile: str="default", region: str="", dry: bool=False, yes_all: bool=False):
-        session = boto3.Session(profile_name=profile)
+        session_args = dict()
+
+        #TODO: .envの読み取りもつけたい
+        if (access_key := os.environ.get('AWS_ACCESS_KEY_ID')) is not None:
+            session_args['aws_access_key_id'] = access_key
+            session_args['aws_secret_access_key'] = os.enciron.get('AWS_SECRET_ACCESS_KEY_ID')
+            if (sess_token := os.environ.get('AWS_SESSION_TOKEN')) is not None:
+                session_args['aws_session_token'] = sess_token
+        else:
+            session_args["profile_name"] = profile
+
+        session = boto3.Session(**session_args)
+        
         self._acm = session.client("acm")
         self._route53 = session.client("route53")
         self._csv_header = ["Domain", "Name", "Type", "Value"]
@@ -163,9 +175,11 @@ class Main:
             print(" Skkiped.")
         else:
             if not self._yes_all:
-                confirm = input("[Y/n]")
+                #TODO: stdoutではなくてstderrに出力されてしまうため`2>/dev/null``で実行した場合の挙動が分かりづらい
+                confirm = input(" [Y/n]")
             else:
                 print("")
+            
             if self._yes_all or 'Y' == confirm.upper():
                 self._route53.change_resource_record_sets(
                     HostedZoneId=zone['Id'],
