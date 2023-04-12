@@ -19,6 +19,7 @@ class Main:
             profile (str): 実行時に利用するAWSプロファイル
             region (str): 実行先リージョン
             dry (bool): Trueの場合、確認メッセージの出力後の登録処理を行いません
+            yes_all (bool): Trueの場合全ての確認を自動的にyesとして処理する
     '''
     #TODO: 初期化処理がi/oセットになってるので分離したい
     #FIXME: --yes-allで受け入れ可能だがhelp上でyes_allではなくyes-all表記にする方法が不明
@@ -79,7 +80,6 @@ class Main:
         list_cert_result = self._acm.list_certificates()
         cert_list = list_cert_result['CertificateSummaryList']
         
-        print(cert_list)
         if 0 == len(cert_list):
             print("no certificate")
             return
