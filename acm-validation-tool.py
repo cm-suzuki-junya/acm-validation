@@ -23,7 +23,7 @@ class Main:
     '''
     #TODO: 初期化処理がi/oセットになってるので分離したい
     #FIXME: --yes-allで受け入れ可能だがhelp上でyes_allではなくyes-all表記にする方法が不明
-    def __init__(self, profile: str="default", region: str="", dry: bool=False, yes_all: bool=False):
+    def __init__(self, profile: str="", region: str="", dry: bool=False, yes_all: bool=False):
         session_args = dict()
 
         #TODO: .envの読み取りもつけたい
@@ -32,7 +32,7 @@ class Main:
             session_args['aws_secret_access_key'] = os.enciron.get('AWS_SECRET_ACCESS_KEY_ID')
             if (sess_token := os.environ.get('AWS_SESSION_TOKEN')) is not None:
                 session_args['aws_session_token'] = sess_token
-        else:
+        elif "" != profile:
             session_args["profile_name"] = profile
 
         if "" != region:
