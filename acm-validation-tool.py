@@ -29,7 +29,7 @@ class Main:
         #TODO: .envの読み取りもつけたい
         if (access_key := os.environ.get('AWS_ACCESS_KEY_ID')) is not None:
             session_args['aws_access_key_id'] = access_key
-            session_args['aws_secret_access_key'] = os.enciron.get('AWS_SECRET_ACCESS_KEY_ID')
+            session_args['aws_secret_access_key'] = os.enciron.get('AWS_SECRET_ACCESS_KEY')
             if (sess_token := os.environ.get('AWS_SESSION_TOKEN')) is not None:
                 session_args['aws_session_token'] = sess_token
         elif "" != profile:
